@@ -97,7 +97,7 @@ During the snapshot creation process, each snapshot is generated with several ad
 ```
 ebs_snapman=1       # to denote that this was created by this program
 src_instance        # shows which instance this snapshot belongs to
-device,Value        # associates this snapshot with a device (eg: /dev/sdg)
+device              # associates this snapshot with a device (eg: /dev/sdg)
 src_instance_type   # the instance type .. in case you really need to know
 snap_user           # the IAM user that created the snapshot
 src_instance_name   # the instance name-tag
