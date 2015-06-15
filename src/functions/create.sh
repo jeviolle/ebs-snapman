@@ -26,11 +26,17 @@ Parameters for the 'create' command
 
 ==== All options are EXCLUSIVE ====
 
-  --volume-ids <vol1,vol2>        volumes(s) (comma separated) to snap
-  --all-used-volumes <owner id>   this will snap all volumes in use by ec2 instances
-  --all-volumes <owner id>        this will snap both used/unused volumes
-  --instance-ids <i1,i2>          instance(s) (comma separated) to snap
-  --nametags <host1,host2>        snap instances w/ this name tag (comma separated)
+  --volume-ids <vol1,vol2>        	volumes(s) (comma separated) to snap
+  --all-used-volumes <owner id>   	this will snap all volumes in use by ec2 instances
+  --all-volumes <owner id>        	this will snap both used/unused volumes
+  --instance-ids <i1,i2>          	instance(s) (comma separated) to snap
+  --nametags <host1,host2>        	snap instances w/ this name tag (comma separated)
+
+==== optional modifiers ====
+
+  --exclude-volume-ids <vol1,vol2>      exclude the listed volume(s) from processing (comma separated)
+  --exclude-instance-ids <id1,id2>      exclude these instance(s) from processing (comma separated)
+  --exclude-nametags <host1,host2>      exclude all instances w/ this name tag (comma separated)
 
 EOF
 exit 1
@@ -74,6 +80,18 @@ function create_options() {
         exclusive_count=`expr $exclusive_count + 1`
         shift
         ;;
+      --exclude-volume-ids)
+        EXCLUDED_VOLUMES="$2"
+        shift
+        ;;
+      --exclude-instance-ids)
+        EXCLUDED_INSTANCE_IDS="$2"
+        shift
+        ;;
+      --exclude-nametags)
+        EXCLUDED_NAMETAGS="$2"
+        shift
+        ;;
       *)
         options_error
         create_help
@@ -92,6 +110,27 @@ function create_options() {
 
   # change field separator
   IFS=','
+
+  # process 'excluded' 
+  if [ "x$EXCLUDED_VOLUMES" != "x" ]
+  then
+    for vol in $EXCLUDED_VOLUMES
+    do
+      EXCLUDED+=($vol)
+    done
+  elif [ "x$EXCLUDED_INSTANCE_IDS" != "x" ]
+  then
+    for instance in $EXCLUDED_INSTANCE_IDS
+    do
+      exclude_volumes_for_instance $instance
+    done
+  elif [ "x$EXCLUDED_NAMETAGS" != "x" ]
+  then
+    for nametag in $EXCLUDED_NAMETAGS
+    do
+      exclude_volumes_for_nametag $nametag
+    done
+  fi
 
   # process the specified option
   if [ "x$VOLUMES" != "x" ]
@@ -160,12 +199,15 @@ function snap_used_volumes() {
   unset IFS
   [ "x$1" = "x" ] && echo "FAIL: No owner-id specified for snap_used_volumes()...exiting" && exit 1
   owner=$1
+  excluded_regex=`echo ${EXCLUDED[@]} | tr ' ' '|'`
 
   echo "-----"
   echo "Taking snapshots for all used volumes in ${REGION}:${PROFILE}..."
   echo "-----"
 
-  for vol in $(${EC2_CMD} describe-volumes --owner-ids $owner --filters "Name=status,Values=in-use" | jq -r '.Volumes[] | .VolumeId')
+  vols=$(${EC2_CMD} describe-volumes --owner-ids $owner --filters "Name=status,Values=in-use" | jq -r '.Volumes[] | .VolumeId')
+
+  for vol in `echo $vols | perl -p -e "s/($excluded_regex)//g" | perl -p -e 's/\s+/ /'`
   do
     snap_volume $vol
   done
@@ -176,12 +218,15 @@ function snap_all_volumes() {
   unset IFS
   [ "x$1" = "x" ] && echo "FAIL: No owner-id specified for snap_all_volumes()...exiting" && exit 1
   owner=$1
+  excluded_regex=`echo ${EXCLUDED[@]} | tr ' ' '|'`
 
   echo "-----"
   echo "Taking snapshots for all volumes in ${REGION}:${PROFILE}..."
   echo "-----"
 
-  for vol in $(${EC2_CMD} describe-volumes --owner-ids $owner | jq -r '.Volumes[] | .VolumeId')
+  vols=$(${EC2_CMD} describe-volumes --owner-ids $owner | jq -r '.Volumes[] | .VolumeId')
+
+  for vol in `echo $vols | perl -p -e "s/($excluded_regex)//g" | perl -p -e 's/\s+/ /'`
   do
     snap_volume $vol
   done
@@ -193,6 +238,7 @@ function snap_instance_volumes() {
   # either die or set the name variable
   [ "x$1" = "x" ] && echo "FAIL: No instance Name tag specified for snap_instance_volumes()...exiting" && exit 1
   instance=$1
+  excluded_regex=`echo ${EXCLUDED[@]} | tr ' ' '|'`
 
   echo "-----"
   echo "Taking snapshots for instance-id: $instance..."
@@ -201,7 +247,7 @@ function snap_instance_volumes() {
   vols=$(${EC2_CMD} describe-instances --instance-ids $instance | \
     jq -r '.Reservations[].Instances[].BlockDeviceMappings[] | .Ebs.VolumeId ')
 
-  for vol in $vols
+  for vol in `echo $vols | perl -p -e "s/($excluded_regex)//g" | perl -p -e 's/\s+/ /'`
   do
     snap_volume $vol
   done

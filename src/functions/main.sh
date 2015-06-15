@@ -17,6 +17,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# global for excluded volumes
+declare -a EXCLUDED
+EXCLUDED+=("DUMMY")
 
 # general usage function
 function usage() {
@@ -41,9 +44,9 @@ function options_help() {
 usage
 cat <<EOF
 
-  --help                          this message
-  --region <region>               aws region  (see aws help for more info)
-  --profile <profile>             aws profile (see aws help for more info)
+  --help                        	this message
+  --region <region>             	aws region  (see aws help for more info)
+  --profile <profile>            	aws profile (see aws help for more info)
 
 EOF
 command_help
@@ -63,6 +66,47 @@ function check_region_and_profile() {
     exit 1
 }
 
+function exclude_volumes_for_instance() {
+  unset IFS
+  # either die or set the name variable
+  [ "x$1" = "x" ] && echo "FAIL: No instance Name tag specified for exclude_volumes_for_instance()...exiting" && exit 1
+  instance=$1
+
+  vols=$(${EC2_CMD} describe-instances --instance-ids $instance | \
+    jq -r '.Reservations[].Instances[].BlockDeviceMappings[] | .Ebs.VolumeId ')  
+
+  # add each volume to the excluded global
+  for v in $vols
+  do
+    EXCLUDED+=($v)
+  done
+}
+
+function exclude_volumes_for_nametag() {
+  unset IFS
+  # either die or set the name variable
+  [ "x$1" = "x" ] && echo "FAIL: No instance Name tag specified for exclude_volumes_for_nametag()...exiting" && exit 1
+  name=$1
+
+  # snap one instance's volumes at a time
+  instances=$(${EC2_CMD} describe-instances --filters "Name=tag-key,Values=Name" "Name=tag-value,Values=$name" | \
+    jq -r '.Reservations[].Instances[] | .InstanceId')
+
+  for i in $instances
+  do
+    exclude_volumes_for_instance $i
+  done
+}
+
+function warn_excluded() {
+  unset IFS
+  if [ "${#EXCLUDED[@]}" -gt 1 ]
+  then    
+    echo "-----"
+    echo "INFO: Volume(s) are being excluded ..."
+    echo "-----"
+  fi      
+}
 
 . ${BASE}/functions/create.sh
 . ${BASE}/functions/list.sh

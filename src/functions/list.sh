@@ -24,12 +24,18 @@ cat <<EOF
 
 Parameters for the 'list' command
 
-==== All options are EXCLUSIVE ====
+==== EXCLUSIVE options ====
 
-  --all <owner id>            this will list all snapshots
-  --volume-ids <vol1,vol2>    list snapshots for these volumes(s) (comma separated)
-  --instance-ids <i1,i2>      list snapshots for defined instance(s) (comma separated)
-  --nametags <host1,host2>    list snapshots for instances w/ this name tag (comma separated)
+  --all <owner id>            		this will list all snapshots
+  --volume-ids <vol1,vol2>    		list snapshots for these volumes(s) (comma separated)
+  --instance-ids <i1,i2>      		list snapshots for defined instance(s) (comma separated)
+  --nametags <host1,host2>    		list snapshots for instances w/ this name tag (comma separated)
+
+==== optional modifiers ====
+
+  --exclude-volume-ids <vol1,vol2>      exclude the listed volume(s) from processing (comma separated)
+  --exclude-instance-ids <id1,id2>      exclude these instance(s) from processing (comma separated)
+  --exclude-nametags <host1,host2>      exclude all instances w/ this name tag (comma separated)
 
 EOF
 exit 1
@@ -67,6 +73,18 @@ function list_options() {
         exclusive_count=`expr $exclusive_count + 1`
         shift
         ;;
+      --exclude-volume-ids)
+	EXCLUDED_VOLUMES="$2"
+	shift
+	;;
+      --exclude-instance-ids)
+	EXCLUDED_INSTANCE_IDS="$2"
+	shift
+	;;
+      --exclude-nametags)
+	EXCLUDED_NAMETAGS="$2"
+	shift
+	;;
       *)
         options_error
         list_help
@@ -84,6 +102,27 @@ function list_options() {
 
   # change field separator
   IFS=','
+
+  # process 'excluded' 
+  if [ "x$EXCLUDED_VOLUMES" != "x" ]
+  then
+    for vol in $EXCLUDED_VOLUMES
+    do
+      EXCLUDED+=($vol)
+    done
+  elif [ "x$EXCLUDED_INSTANCE_IDS" != "x" ]
+  then
+    for instance in $EXCLUDED_INSTANCE_IDS
+    do
+      exclude_volumes_for_instance $instance
+    done
+  elif [ "x$EXCLUDED_NAMETAGS" != "x" ]
+  then
+    for nametag in $EXCLUDED_NAMETAGS
+    do
+      exclude_volumes_for_nametag $nametag
+    done
+  fi
 
   # process the specified option
   if [ "x$VOLUMES" != "x" ]
@@ -120,10 +159,12 @@ function list_snapshots_by_volume() {
   echo "-----"
   echo "Listing all snapshots for volume-id: $volume"
   echo "-----"
+  warn_excluded
 
   ${EC2_CMD} describe-snapshots --filters "Name=volume-id,Values=$volume" | \
     jq -r '.Snapshots[] | { VolumeId, SnapshotId, StartTime, Progress }' | \
-    sed -e 's/{/-\t@/' | sed '/}/d' | awk '{print $2}' | tr '\n' " " | tr '@' '\n' | sed 's/ //g'
+    sed -e 's/{/-\t@/' | sed '/}/d' | awk '{print $2}' | tr '\n' " " | tr '@' '\n' | sed 's/ //g' | \
+    egrep -v "(`echo ${EXCLUDED[@]} | sed 's/ /\|/g'`)"
 
   echo
 }
@@ -137,12 +178,14 @@ function list_all_snapshots() {
   echo "-----"
   echo "Listing all snapshots for owner-id: $owner"
   echo "-----"
+  warn_excluded
 
   # create csv tabular output from JSON with the fields in this order
   # VolumeId, SnapshotId, StartTime(timestamp), Progress(percent)
   ${EC2_CMD} describe-snapshots --owner-ids $owner | \
     jq -r '.Snapshots[] | { VolumeId, SnapshotId, StartTime, Progress }' | \
-    sed -e 's/{/-\t@/' | sed '/}/d' | awk '{print $2}' | tr '\n' " " | tr '@' '\n' | sed 's/ //g'
+    sed -e 's/{/-\t@/' | sed '/}/d' | awk '{print $2}' | tr '\n' " " | tr '@' '\n' | sed 's/ //g' | \
+    egrep -v "(`echo ${EXCLUDED[@]} | sed 's/ /\|/g'`)"
 
   echo
 }
@@ -156,12 +199,14 @@ function list_instance_snapshots() {
   echo "-----"
   echo "Listing snapshots for instance-id: $instance..."
   echo "-----"
+  warn_excluded
 
   # create csv tabular output from JSON with the fields in this order
   # VolumeId, SnapshotId, StartTime(timestamp), Progress(percent)
   ${EC2_CMD} describe-snapshots --filter "Name=tag-key,Values=src_instance" "Name=tag-value,Values=$instance" | \
     jq -r '.Snapshots[] | { VolumeId, SnapshotId, StartTime, Progress }' | \
-    sed -e 's/{/-\t@/' | sed '/}/d' | awk '{print $2}' | tr '\n' " " | tr '@' '\n' | sed 's/ //g'
+    sed -e 's/{/-\t@/' | sed '/}/d' | awk '{print $2}' | tr '\n' " " | tr '@' '\n' | sed 's/ //g' | \
+    egrep -v "(`echo ${EXCLUDED[@]} | sed 's/ /\|/g'`)"
 
   echo
 }
