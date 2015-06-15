@@ -204,6 +204,7 @@ function snap_used_volumes() {
   echo "-----"
   echo "Taking snapshots for all used volumes in ${REGION}:${PROFILE}..."
   echo "-----"
+  warn_excluded
 
   vols=$(${EC2_CMD} describe-volumes --owner-ids $owner --filters "Name=status,Values=in-use" | jq -r '.Volumes[] | .VolumeId')
 
@@ -223,6 +224,7 @@ function snap_all_volumes() {
   echo "-----"
   echo "Taking snapshots for all volumes in ${REGION}:${PROFILE}..."
   echo "-----"
+  warn_excluded
 
   vols=$(${EC2_CMD} describe-volumes --owner-ids $owner | jq -r '.Volumes[] | .VolumeId')
 
@@ -243,6 +245,7 @@ function snap_instance_volumes() {
   echo "-----"
   echo "Taking snapshots for instance-id: $instance..."
   echo "-----"
+  warn_excluded
 
   vols=$(${EC2_CMD} describe-instances --instance-ids $instance | \
     jq -r '.Reservations[].Instances[].BlockDeviceMappings[] | .Ebs.VolumeId ')
