@@ -31,6 +31,14 @@ Parameters for the 'remove' command
   --instance-ids <i1,i2>      remove all snapshots for listed instance(s) (comma separated)
   --nametags <host1,host2>    remove all snapshots for instances w/ this name tag (comma separated)
 
+==== optional modifiers ====
+
+  **these do not work for 'remove --snapshot-ids <s1,s2>'
+
+  --exclude-volume-ids <vol1,vol2>      exclude the listed volume(s) from processing (comma separated)
+  --exclude-instance-ids <id1,id2>      exclude these instance(s) from processing (comma separated)
+  --exclude-nametags <host1,host2>      exclude all instances w/ this name tag (comma separated)
+
 EOF
 exit 1
 }
@@ -68,6 +76,18 @@ function remove_options() {
         exclusive_count=`expr $exclusive_count + 1`
         shift
         ;;
+      --exclude-volume-ids)
+        EXCLUDED_VOLUMES="$2"
+        shift
+        ;;
+      --exclude-instance-ids)
+        EXCLUDED_INSTANCE_IDS="$2"
+        shift
+        ;;
+      --exclude-nametags)
+        EXCLUDED_NAMETAGS="$2"
+        shift
+        ;;
       *)
         options_error
         remove_help
@@ -84,6 +104,27 @@ function remove_options() {
 
   # change field separator
   IFS=','
+
+  # process 'excluded' 
+  if [ "x$EXCLUDED_VOLUMES" != "x" ]
+  then
+    for vol in $EXCLUDED_VOLUMES
+    do
+      EXCLUDED+=($vol)
+    done
+  elif [ "x$EXCLUDED_INSTANCE_IDS" != "x" ]
+  then
+    for instance in $EXCLUDED_INSTANCE_IDS
+    do
+      exclude_volumes_for_instance $instance
+    done
+  elif [ "x$EXCLUDED_NAMETAGS" != "x" ]
+  then
+    for nametag in $EXCLUDED_NAMETAGS
+    do
+      exclude_volumes_for_nametag $nametag
+    done
+  fi
 
   # process the specified option
   if [ "x$SNAPSHOTS" != "x" ]
