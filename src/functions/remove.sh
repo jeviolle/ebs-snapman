@@ -26,18 +26,19 @@ Parameters for the 'remove' command
 
 ==== All options are EXCLUSIVE ====
 
-  --all <owner id>            remove all snapshots
-  --snapshot-ids <s1,s2>      snapshot(s) (comma separated) to remove
-  --instance-ids <i1,i2>      remove all snapshots for listed instance(s) (comma separated)
-  --nametags <host1,host2>    remove all snapshots for instances w/ this name tag (comma separated)
+  --all <owner id>            		remove all snapshots
+  --snapshot-ids <s1,s2>      		snapshot(s) (comma separated) to remove
+  --instance-ids <i1,i2>      		remove all snapshots for listed instance(s) (comma separated)
+  --nametags <host1,host2>    		remove all snapshots for instances w/ this name tag (comma separated)
 
 ==== optional modifiers ====
 
-  **these do not work for 'remove --snapshot-ids <s1,s2>'
+  --force				forces snapshot removal when there are pending snapshots
+  --exclude-volume-ids <vol1,vol2>      **exclude the listed volume(s) from processing (comma separated)
+  --exclude-instance-ids <id1,id2>      **exclude these instance(s) from processing (comma separated)
+  --exclude-nametags <host1,host2>      **exclude all instances w/ this name tag (comma separated)
 
-  --exclude-volume-ids <vol1,vol2>      exclude the listed volume(s) from processing (comma separated)
-  --exclude-instance-ids <id1,id2>      exclude these instance(s) from processing (comma separated)
-  --exclude-nametags <host1,host2>      exclude all instances w/ this name tag (comma separated)
+  ** these do not work for 'remove --snapshot-ids <s1,s2>'
 
 EOF
 exit 1
@@ -88,6 +89,10 @@ function remove_options() {
         EXCLUDED_NAMETAGS="$2"
         shift
         ;;
+      --force)
+	FORCE=0
+	shift
+	;;
       *)
         options_error
         remove_help
@@ -158,6 +163,15 @@ function remove_snapshot() {
   [ "x$1" = "x" ] && echo "FAIL: No snapshot-id specified for remove_snapshot()...exiting" && exit 1
   snapshot=$1
 
+  is_complete=$(${EC2_CMD} describe-snapshots --snapshot-ids $snapshot --filters Name=status,Values=completed | jq -r '.Snapshots[].SnapshotId')
+
+  if [ "x$is_complete" != "x" -a "$FORCE" = 1 ]
+  then
+    echo "WARN: skipping snapshot removal for $snapshot , this snapshot is not complete."
+    echo "      rerun with --force to continue regardless"
+    return 1
+  fi
+
   ${EC2_CMD} delete-snapshot --snapshot-id $snap
 
   echo "Deleted $snapshot"
@@ -168,12 +182,19 @@ function remove_all_snapshots() {
   unset IFS
   [ "x$1" = "x" ] && echo "FAIL: No owner-id specified for remove_all_snapshots()...exiting" && exit 1
   owner=$1
+  snapshots=""
 
   echo "-----"
   echo "Removing all snapshots for owner-id: $owner"
   echo "-----"
 
-  snapshots=$(list_all_snapshots $owner | awk -F "\",\"" '{print $2}')
+  if [ "$FORCE" = 0 ]
+  then
+    snapshots=$(list_all_snapshots $owner | awk -F "\",\"" '{print $2}')
+  else
+    snapshots=$(list_all_snapshots $owner | grep '^"' | grep -v '100%' | awk -F "\",\"" '{print $2}')
+  fi
+
   for snap in $snapshots
   do
     remove_snapshot $snap
@@ -185,12 +206,19 @@ function remove_instance_snapshots() {
   unset IFS
   [ "x$1" = "x" ] && echo "FAIL: No instance-id specified for remove_instance_snapshots()...exiting" && exit 1
   instance=$1
+  snapshots=""
 
   echo "-----"
   echo "Removing snapshots for instance-id: $instance"
   echo "-----"
 
-  snapshots=$(list_instance_snapshots $instance | awk -F "\",\"" '{print $2}')
+  if [ "$FORCE" = 0 ]
+  then
+    snapshots=$(list_instance_snapshots $instance | awk -F "\",\"" '{print $2}')
+  else
+    snapshots=$(list_instance_snapshots $instance | grep '^"' | grep -v '100%' | awk -F "\",\"" '{print $2}')
+  fi
+
   for snap in $snapshots
   do
     remove_snapshot $snap
@@ -202,12 +230,19 @@ function remove_snapshots_by_nametag() {
   unset IFS
   [ "x$1" = "x" ] && echo "FAIL: No instance Name tag specified for remove_snapshots_by_nametag()...exiting" && exit 1
   name=$1
+  snapshots=""
 
   echo "-----"
   echo "Removing snapshots for instances that contain the Name tag: $name..."
   echo "-----"
 
-  snapshots=$(list_snapshots_by_nametag $name | awk -F "\",\"" '{print $2}')
+  if [ "$FORCE" = 0 ]
+  then
+    snapshots=$(list_snapshots_by_nametag $name | awk -F "\",\"" '{print $2}')
+  else
+    snapshots=$(list_snapshots_by_nametag $name | grep '^"' | grep -v '100%' | awk -F "\",\"" '{print $2}')
+  fi
+
   for snap in $snapshots
   do
     remove_snapshot $snap

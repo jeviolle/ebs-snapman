@@ -17,7 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# global for excluded volumes
+# globals
+FORCE=1
 declare -a EXCLUDED
 EXCLUDED+=("DUMMY")
 

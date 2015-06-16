@@ -34,6 +34,7 @@ Parameters for the 'create' command
 
 ==== optional modifiers ====
 
+  --force				forces snapshot creation when there are pending snapshots
   --exclude-volume-ids <vol1,vol2>      exclude the listed volume(s) from processing (comma separated)
   --exclude-instance-ids <id1,id2>      exclude these instance(s) from processing (comma separated)
   --exclude-nametags <host1,host2>      exclude all instances w/ this name tag (comma separated)
@@ -92,6 +93,10 @@ function create_options() {
         EXCLUDED_NAMETAGS="$2"
         shift
         ;;
+      --force)
+	FORCE=0
+	shift
+	;;
       *)
         options_error
         create_help
@@ -167,6 +172,15 @@ function snap_volume() {
   [ "x$1" = "x" ] && echo "FAIL: No volume specified for snap_volume()...exiting" && exit 1
   vol=$1
 
+  pending_snapshots=$(list_snapshots_by_volume $vol | grep '^"' | grep -v '100%' | wc -l)
+  if [ "$pending_snapshots" -gt 0 -a "$FORCE" = 1 ]
+  then
+    echo "WARN: skipping create snapshot for $vol ,there are pending volume snapshots."
+    echo "      rerun with --force to continue regardless"
+    return 1
+  fi
+
+  echo "-----"
   # create the snapshot
   snapshot=$(${EC2_CMD} create-snapshot --volume-id $vol | jq -r '.|.SnapshotId')
 
@@ -241,6 +255,14 @@ function snap_instance_volumes() {
   [ "x$1" = "x" ] && echo "FAIL: No instance Name tag specified for snap_instance_volumes()...exiting" && exit 1
   instance=$1
   excluded_regex=`echo ${EXCLUDED[@]} | tr ' ' '|'`
+
+  pending_snapshots=$(list_instance_snapshots $instance | grep '^"' | grep -v '100%' | wc -l)
+  if [ "$pending_snapshots" -gt 0 -a "$FORCE" = 1 ]
+  then
+    echo "WARN: skipping create snapshot for $instance ,there are pending instance snapshots."
+    echo "      rerun with --force to continue regardless"
+    return 1
+  fi
 
   echo "-----"
   echo "Taking snapshots for instance-id: $instance..."
