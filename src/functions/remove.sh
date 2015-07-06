@@ -165,7 +165,7 @@ function remove_snapshot() {
 
   is_complete=$(${EC2_CMD} describe-snapshots --snapshot-ids $snapshot --filters Name=status,Values=completed | jq -r '.Snapshots[].SnapshotId')
 
-  if [ "x$is_complete" != "x" -a "$FORCE" = 1 ]
+  if [ "x$is_complete" = "x" -a "$FORCE" = 1 ]
   then
     echo "WARN: skipping snapshot removal for $snapshot , this snapshot is not complete."
     echo "      rerun with --force to continue regardless"
