@@ -12,7 +12,7 @@
 *I assume this could be made to work under cygwin*
 
 ```
-linux or Mac OSX (bash,grep,sed,awk,expr,perl,python)
+linux or Mac OSX (bash,egrep,grep,sed,awk,expr,perl,python,sort)
 ```
 
 ####Extra packages
