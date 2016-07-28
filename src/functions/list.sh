@@ -164,7 +164,7 @@ function list_snapshots_by_volume() {
   ${EC2_CMD} describe-snapshots --filters "Name=volume-id,Values=$volume" | \
     jq -r '.Snapshots[] | { VolumeId, SnapshotId, StartTime, Progress }' | \
     sed -e 's/{/-\t@/' | sed '/}/d' | awk '{print $2}' | tr '\n' " " | tr '@' '\n' | sed 's/ //g' | \
-    egrep -v "(`echo ${EXCLUDED[@]} | sed 's/ /\|/g'`)"
+    egrep -v "(`echo ${EXCLUDED[@]} | sed 's/ /\|/g'`)" | sort -k3 -t,
 
   echo
 }
@@ -185,7 +185,7 @@ function list_all_snapshots() {
   ${EC2_CMD} describe-snapshots --owner-ids $owner | \
     jq -r '.Snapshots[] | { VolumeId, SnapshotId, StartTime, Progress }' | \
     sed -e 's/{/-\t@/' | sed '/}/d' | awk '{print $2}' | tr '\n' " " | tr '@' '\n' | sed 's/ //g' | \
-    egrep -v "(`echo ${EXCLUDED[@]} | sed 's/ /\|/g'`)"
+    egrep -v "(`echo ${EXCLUDED[@]} | sed 's/ /\|/g'`)" | sort -k3 -t,
 
   echo
 }
@@ -206,7 +206,7 @@ function list_instance_snapshots() {
   ${EC2_CMD} describe-snapshots --filter "Name=tag-key,Values=src_instance" "Name=tag-value,Values=$instance" | \
     jq -r '.Snapshots[] | { VolumeId, SnapshotId, StartTime, Progress }' | \
     sed -e 's/{/-\t@/' | sed '/}/d' | awk '{print $2}' | tr '\n' " " | tr '@' '\n' | sed 's/ //g' | \
-    egrep -v "(`echo ${EXCLUDED[@]} | sed 's/ /\|/g'`)"
+    egrep -v "(`echo ${EXCLUDED[@]} | sed 's/ /\|/g'`)" | sort -k3 -t,
 
   echo
 }
