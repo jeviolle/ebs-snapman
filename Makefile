@@ -33,7 +33,7 @@ help:
 testdeps:
 	@echo "Testing dependencies..."
 	@echo 
-	@for i in "jq" "aws" "bash" "grep" "sed" "awk" "expr" "perl"; do \
+	@for i in "jq" "aws" "bash" "egrep" "grep" "sed" "awk" "expr" "perl" "sort"; do \
 		echo -n "$$i	..." ;\
 		which $$i > /dev/null 2>&1 ;\
 		if [ $$? = 0 ];then \
