@@ -94,9 +94,9 @@ function create_options() {
         shift
         ;;
       --force)
-	FORCE=0
-	shift
-	;;
+        FORCE=0
+        shift
+        ;;
       *)
         options_error
         create_help

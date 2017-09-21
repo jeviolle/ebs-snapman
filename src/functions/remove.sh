@@ -90,9 +90,9 @@ function remove_options() {
         shift
         ;;
       --force)
-	FORCE=0
-	shift
-	;;
+        FORCE=0
+        shift
+        ;;
       *)
         options_error
         remove_help
@@ -192,7 +192,7 @@ function remove_all_snapshots() {
   then
     snapshots=$(list_all_snapshots $owner | awk -F "\",\"" '{print $2}')
   else
-    snapshots=$(list_all_snapshots $owner | grep '^"' | grep -v '100%' | awk -F "\",\"" '{print $2}')
+    snapshots=$(list_all_snapshots $owner | grep '^"' | grep '100%' | awk -F "\",\"" '{print $2}')
   fi
 
   for snap in $snapshots
@@ -216,7 +216,7 @@ function remove_instance_snapshots() {
   then
     snapshots=$(list_instance_snapshots $instance | awk -F "\",\"" '{print $2}')
   else
-    snapshots=$(list_instance_snapshots $instance | grep '^"' | grep -v '100%' | awk -F "\",\"" '{print $2}')
+    snapshots=$(list_instance_snapshots $instance | grep '^"' | grep '100%' | awk -F "\",\"" '{print $2}')
   fi
 
   for snap in $snapshots
@@ -240,7 +240,7 @@ function remove_snapshots_by_nametag() {
   then
     snapshots=$(list_snapshots_by_nametag $name | awk -F "\",\"" '{print $2}')
   else
-    snapshots=$(list_snapshots_by_nametag $name | grep '^"' | grep -v '100%' | awk -F "\",\"" '{print $2}')
+    snapshots=$(list_snapshots_by_nametag $name | grep '^"' | grep '100%' | awk -F "\",\"" '{print $2}')
   fi
 
   for snap in $snapshots
