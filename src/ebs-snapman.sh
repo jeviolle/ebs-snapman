@@ -42,11 +42,20 @@ echo $options | grep -q '\-\-help'
 # check for region and profile
 REGION=`echo $options | perl -nle 'print $1 if /\-\-region\s+([\w|\-]+)/'`
 PROFILE=`echo $options | perl -nle 'print $1 if /\-\-profile\s+([\w|\-]+)/'`
-check_region_and_profile
+check_awscli_options
 
-# remove region and profile from $options
-options=`echo $options | perl -p -e 's/\-\-region\s+([\w|\-]+)//' | sed 's/^[ \t]*//;s/[ \t]*$//'`
-options=`echo $options | perl -p -e 's/\-\-profile\s+([\w|\-]+)//' | sed 's/^[ \t]*//;s/[ \t]*$//'`
+if [ "x$REGION" != "x" -a "x$PROFILE" != "x" ]
+then
+  # remove region and profile from $options
+  options=`echo $options | perl -p -e 's/\-\-region\s+([\w|\-]+)//' | sed 's/^[ \t]*//;s/[ \t]*$//'`
+  options=`echo $options | perl -p -e 's/\-\-profile\s+([\w|\-]+)//' | sed 's/^[ \t]*//;s/[ \t]*$//'`
+
+  EC2_CMD="aws --region $REGION --profile $PROFILE ec2"
+  IAM_CMD="aws --region $REGION --profile $PROFILE iam"
+else
+  EC2_CMD="aws ec2"
+  IAM_CMD="aws iam"
+fi
 
 # convert reminaing to an array and separate
 IFS=' ' read -a remaining_args <<< "$options"
@@ -59,11 +68,6 @@ do
   suboption="$suboption ${remaining_args[$count]}"
   count=`expr $count + 1`
 done
-
-
-# Variables
-EC2_CMD="aws --region $REGION --profile $PROFILE ec2"
-IAM_CMD="aws --region $REGION --profile $PROFILE iam"
 
 # verify if a valid command has been specified
 # and exit with available choices

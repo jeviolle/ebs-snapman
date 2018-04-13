@@ -46,8 +46,12 @@ usage
 cat <<EOF
 
   --help                        	this message
+
   --region <region>             	aws region  (see aws help for more info)
   --profile <profile>            	aws profile (see aws help for more info)
+
+  Or you can fallback to the AWS CLI Environment for region, access_key_id, secret_access_key
+  https://docs.aws.amazon.com/cli/latest/userguide/cli-environment.html
 
 EOF
 command_help
@@ -61,10 +65,19 @@ function exclusive_error() {
   echo "error: argument options: Multiple exclusive options were specified."
 }
 
-function check_region_and_profile() {
-  [ "x$REGION" = "x" -o "x$PROFILE" = "x" ] && \
-    options_help && \
-    exit 1
+function check_awscli_options() {
+  if [ "x$REGION" = "x" -o "x$PROFILE" = "x" ]
+  then
+    if [ "x$AWS_DEFAULT_REGION" != "x" -a "x$AWS_ACCESS_KEY_ID" != "x" -a "x$AWS_SECRET_ACCESS_KEY" != "x" ]
+    then
+      echo "info: falling back to using environment variables for AWS access.."
+    else
+      echo "FAIL: region/profile or aws environment not configured..."
+      echo
+      options_help
+      exit 1
+    fi
+  fi
 }
 
 function exclude_volumes_for_instance() {
