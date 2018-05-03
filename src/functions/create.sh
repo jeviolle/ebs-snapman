@@ -105,8 +105,6 @@ function create_options() {
     shift
   done
 
-  check_region_and_profile "create"
-
   if [ $exclusive_count != 1 ]
   then
     exclusive_error
